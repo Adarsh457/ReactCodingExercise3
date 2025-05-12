@@ -1,5 +1,6 @@
 import "./styles.css";
 import { useEffect, useReducer, useState } from "react";
+import React from "react";
 import {
   Box,
   Button,
@@ -199,7 +200,7 @@ export default function App() {
 
       <Grid container spacing={3}>
         {finalList.map((user) => (
-          <Grid key={user.id} size={{ xs: 12, md: 3 }}>
+          <Grid key={user.id} xs={12} md={3}>
             <Card
               sx={{
                 border: removedUsers.find((u) => u.id === user.id)
