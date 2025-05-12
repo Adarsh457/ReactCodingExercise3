@@ -1,6 +1,16 @@
 import "./styles.css";
-import { useReducer, useState } from "react";
-import { Button, TextField } from "@mui/material";
+import { useEffect, useReducer, useState } from "react";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Grid,
+  TextField,
+  Typography,
+} from "@mui/material";
+import users from "./data";
+import { ProcessedUser, RawUser } from "./types";
 
 /** Instructions
    0. Fork this codesandbox and sync it with your github 
@@ -29,48 +39,205 @@ import { Button, TextField } from "@mui/material";
    5. Provide the link to your forked repo with your answers
    */
 
-function reducer(state, action) {
+// Reducder Function
+function reducer(
+  state: number,
+  action: { type: string; payload?: number }
+): number {
   switch (action.type) {
-    case "increment":
-      return { count: state.count + 1 };
-    case "decrement":
-      return { count: state.count - 1 };
+    // Increment Counter By Random Values
+    case "INCREMENT_RANDOM": {
+      const rand = Math.floor(Math.random() * 10) + 1;
+      return state + rand;
+    }
+
+    // Increment Counter By Nearest Odd Values
+    case "INCREMENT_ODD": {
+      return state % 2 === 0 ? state + 1 : state + 2;
+    }
+
+    // Decrement the Input Box Value from the Counter
+    case "DECREMENT_BY_INPUT": {
+      const value = action.payload ?? 0;
+      return Math.max(0, state - value);
+    }
+    // Reset Counter Value
+    case "RESET":
+      return 0;
     default:
-      throw new Error();
+      return state;
   }
 }
 
 export default function App() {
-  const [users] = useState([]);
-  const [numberInput] = useState(0);
+  const [usersData, setUsersData] = useState<ProcessedUser[]>([]);
+  const [removedUsers, setRemovedUsers] = useState<ProcessedUser[]>([]);
+  const [numberInput, setNumberInput] = useState(0);
   const [text] = useState("");
-  const [countState, dispatch] = useReducer(reducer, { count: 0 });
+  const [search, setSearch] = useState("");
+  const [count, dispatch] = useReducer(reducer, 0);
 
+  const allowedChars = "ABCDEF123456";
+  // Generates the Random ID.
+  const getRandomId = (): string => {
+    let id = "";
+    for (let i = 0; i < 6; i++) {
+      id += allowedChars[Math.floor(Math.random() * allowedChars.length)];
+    }
+    return id;
+  };
+  useEffect(() => {
+    // Filtering the users in accending order by username, address, age and company name.
+    const filteredUsers: ProcessedUser[] = users
+      .filter((user: RawUser) => user.age >= 18)
+      .map((user: RawUser) => ({
+        id: getRandomId(),
+        username: user.username,
+        address: user.address,
+        age: user.age,
+        companyName: user.company.name,
+      }))
+      .sort((a, b) => {
+        if (a.age !== b.age) return a.age - b.age;
+        return a.companyName.localeCompare(b.companyName);
+      });
+
+    setUsersData(filteredUsers);
+  }, []);
+
+  // Removing the selected users from the list.
+  const handleRemove = (id: string) => {
+    const user = usersData.find((u) => u.id === id);
+    if (!user) return;
+    setUsersData(usersData.filter((u) => u.id !== id));
+    setRemovedUsers([...removedUsers, user]);
+  };
+
+  // Restoring the removed user from the list.
+  const handleRestore = (id: string) => {
+    const user = removedUsers.find((u) => u.id === id);
+    if (!user) return;
+    setRemovedUsers(removedUsers.filter((u) => u.id !== id));
+    setUsersData([...usersData, user]);
+  };
+
+  // Searching for the user
+  const filteredList = usersData.filter((u) =>
+    u.username.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Searching for the removed user
+  const filteredRemovedUsers = removedUsers.filter((u) =>
+    u.username.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Setting the FinalList. Based on search query
+  const finalList = search
+    ? [...filteredList, ...filteredRemovedUsers]
+    : usersData;
   return (
     <div className="App">
-      <p style={{ marginBottom: 0 }}>Count: {countState.count}</p>
+      <p style={{ marginBottom: 0 }}>Count: {count}</p>
       <TextField
-        defaultValue={numberInput}
+        value={numberInput}
         type="number"
+        sx={{ mb: 2 }}
+        onChange={(e) => {
+          const num = parseInt(e.target.value);
+          setNumberInput(num);
+        }}
         style={{ display: "block" }}
       />
-      <Button
-        variant="contained"
-        onClick={() => dispatch({ type: "decrement" })}
+      <Box
+        sx={{
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+          justifyContent: "center",
+          mb: 4,
+        }}
       >
-        -
-      </Button>
-      <Button
-        variant="contained"
-        onClick={() => dispatch({ type: "increment" })}
-      >
-        +
-      </Button>
+        <Button
+          variant="contained"
+          onClick={() => dispatch({ type: "INCREMENT_RANDOM" })}
+        >
+          + Random
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => dispatch({ type: "INCREMENT_ODD" })}
+        >
+          + Nearest Odd
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() =>
+            dispatch({ type: "DECREMENT_BY_INPUT", payload: numberInput })
+          }
+        >
+          - Input
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={() => {
+            setNumberInput(0);
+            dispatch({ type: "RESET" });
+          }}
+        >
+          Reset
+        </Button>
+      </Box>
+      <hr />
       <p style={{ marginBottom: 0, marginTop: 30 }}>Search for a user</p>
       <TextField
         defaultValue={text}
-        style={{ display: "block", margin: "auto" }}
+        sx={{ mb: 2 }}
+        margin="normal"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
       />
+
+      <Grid container spacing={3}>
+        {finalList.map((user) => (
+          <Grid key={user.id} size={{ xs: 12, md: 3 }}>
+            <Card
+              sx={{
+                border: removedUsers.find((u) => u.id === user.id)
+                  ? "2px solid red"
+                  : "",
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6">{user.username}</Typography>
+                <Typography>Age: {user.age}</Typography>
+                <Typography>Company: {user.companyName}</Typography>
+                <Typography>
+                  Address: {user.address.street}, {user.address.city}
+                </Typography>
+                <Button
+                  variant="contained"
+                  color={
+                    removedUsers.some((u) => u.id === user.id)
+                      ? "success"
+                      : "error"
+                  }
+                  onClick={() => {
+                    if (removedUsers.some((u) => u.id === user.id)) {
+                      handleRestore(user.id);
+                    } else {
+                      handleRemove(user.id);
+                    }
+                  }}
+                >
+                  {removedUsers.some((u) => u.id === user.id)
+                    ? "Restore"
+                    : "Remove"}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
     </div>
   );
 }
